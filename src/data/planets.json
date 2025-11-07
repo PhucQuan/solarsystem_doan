@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "name": "Mercury",
+    "image": "/images/mercury.jpg",
+    "description": "Hành tinh nhỏ nhất, gần Mặt Trời nhất.",
+    "radius": "2,440 km",
+    "distance": "57.9 triệu km"
+  },
+  {
+    "id": 2,
+    "name": "Venus",
+    "image": "/images/venus.jpg",
+    "description": "Nóng nhất hệ Mặt Trời, bầu khí quyển dày đặc.",
+    "radius": "6,052 km",
+    "distance": "108.2 triệu km"
+  }
+]
