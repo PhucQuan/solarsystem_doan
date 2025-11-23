@@ -8,6 +8,7 @@ import Articles from "./pages/Articles";
 import Missions from "./pages/Missions";
 import About from "./pages/About";
 import Navbar from "./components/navigation_bar";
+import ChatBot from "./ChatBot";
 
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
             <Route path="/articles" element={<Articles />} />
             <Route path="/missions" element={<Missions />} />
             <Route path="/about" element={<About />} />
+            <Route path="/chat" element={<ChatBot />} />
           </Routes>
         </main>
       </div>
