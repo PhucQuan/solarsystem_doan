@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 const NAV_LINKS = [
   { to: "/", label: "Home" },
   { to: "/planets", label: "Planets"},
+  { to: "/chat", label: "Chat" },
   { to: "/explore3d", label: "Explore 3D" },
   { to: "/gallery", label: "Gallery" },
   { to: "/articles", label: "Learn"},
