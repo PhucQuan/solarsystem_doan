@@ -1,15 +1,66 @@
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { fetchApod } from "../services/nasa/apod";
 
 export default function Home() {
+  const [apod, setApod] = useState(null);
+  const [apodError, setApodError] = useState("");
+  const [apodLoading, setApodLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const data = await fetchApod({ hd: true });
+        if (isMounted) {
+          setApod(data);
+          // Log detailed info for debugging
+          // eslint-disable-next-line no-console
+          console.log("[APOD] Full data:", data);
+          // eslint-disable-next-line no-console
+          console.log("[APOD] Image URL:", data?.url);
+          // eslint-disable-next-line no-console
+          console.log("[APOD] HD URL:", data?.hdurl);
+        }
+      } catch (err) {
+        if (isMounted) setApodError(err?.message || "Failed to load APOD");
+        // eslint-disable-next-line no-console
+        console.error("[APOD] error:", err);
+      } finally {
+        if (isMounted) setApodLoading(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+
+  const isVideo = apod?.media_type === "video";
+
   return (
     <div className="home">
-      <section className="hero">
+      <section className="hero" style={apod && !isVideo ? { backgroundImage: `url(${apod.hdurl || apod.url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
         <div className="hero__overlay">
-          <h1 className="hero__title">Solar System Exploration</h1>
-          <p className="hero__subtitle">Join us as we explore our solar system.</p>
+          <h1 className="hero__title">{apod?.title || "Solar System Exploration"}</h1>
+          <p className="hero__subtitle">{apod?.date ? `NASA Astronomy Picture of the Day — ${apod.date}` : "Join us as we explore our solar system."}</p>
+          {apodLoading && <p className="muted">Loading NASA APOD…</p>}
+          {apodError && (
+            <p className="muted">
+              {apodError} — Check console (F12 → Console) and ensure .env is loaded.
+            </p>
+          )}
+          {apod && isVideo && (
+            <div style={{ margin: "16px auto", maxWidth: 800 }}>
+              <iframe
+                src={apod.url}
+                title={apod.title}
+                style={{ width: "100%", aspectRatio: "16 / 9", border: 0, borderRadius: 12 }}
+                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )}
           <div className="hero__actions">
             <Link className="btn btn--primary" to="/planets">Explore the Planets</Link>
-            <Link className="btn btn--ghost" to="/explore3d">Open 3D View</Link>
+            <a className="btn btn--ghost" href={apod?.hdurl || apod?.url || "#"} target="_blank" rel="noreferrer">Open APOD</a>
           </div>
         </div>
       </section>
