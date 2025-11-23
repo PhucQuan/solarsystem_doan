@@ -7,7 +7,7 @@ const NAV_LINKS = [
   { to: "/explore3d", label: "Explore 3D" },
   { to: "/gallery", label: "Gallery" },
   { to: "/articles", label: "Learn"},
-  { to: "/missions", label: "Missions" },
+
   { to: "/about", label: "About"}
 ];
 

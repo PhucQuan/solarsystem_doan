@@ -5,10 +5,8 @@ import PlanetDetail from "./pages/PlanetDetails";
 import Explore3D from "./pages/Explore3D";
 import Gallery from "./pages/Gallery";
 import Articles from "./pages/Articles";
-import Missions from "./pages/Missions";
 import About from "./pages/About";
 import Navbar from "./components/navigation_bar";
-
 
 function App() {
   return (
@@ -23,7 +21,6 @@ function App() {
             <Route path="/explore3d" element={<Explore3D />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/articles" element={<Articles />} />
-            <Route path="/missions" element={<Missions />} />
             <Route path="/about" element={<About />} />
           </Routes>
         </main>

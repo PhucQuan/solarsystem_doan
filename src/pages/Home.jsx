@@ -37,7 +37,12 @@ export default function Home() {
 
   return (
     <div className="home">
-      <section className="hero" style={apod && !isVideo ? { backgroundImage: `url(${apod.hdurl || apod.url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
+      <section className="hero" style={apod && !isVideo ? { 
+        backgroundImage: `url(${apod.url})`, 
+        backgroundSize: "cover", 
+        backgroundPosition: "center",
+        minHeight: "500px"
+      } : { minHeight: "500px" }}>
         <div className="hero__overlay">
           <h1 className="hero__title">{apod?.title || "Solar System Exploration"}</h1>
           <p className="hero__subtitle">{apod?.date ? `NASA Astronomy Picture of the Day — ${apod.date}` : "Join us as we explore our solar system."}</p>
@@ -68,7 +73,7 @@ export default function Home() {
       <section className="highlights">
         <div className="section__header">
           <h2>10 Things about our solar system</h2>
-          <p className="muted">Quick facts inspired by NASA’s Solar System Exploration.</p>
+          <p className="muted">Quick facts inspired by NASA's Solar System Exploration.</p>
         </div>
         <div className="cards">
           <article className="card">
@@ -97,40 +102,31 @@ export default function Home() {
         </div>
         <div className="planet-grid">
           {[
-            { name: "Mercury" },
-            { name: "Venus" },
-            { name: "Earth" },
-            { name: "Mars" },
-            { name: "Jupiter" },
-            { name: "Saturn" },
-            { name: "Uranus" },
-            { name: "Neptune" },
+            { name: "Mercury", image: "/textures/mercury.jpg", color: "#8C7853" },
+            { name: "Venus", image: "/textures/venus.jpg", color: "#FFC649" },
+            { name: "Earth", image: "/textures/earth.jpg", color: "#4A90E2" },
+            { name: "Mars", image: "/textures/mars.jpg", color: "#E27B58" },
+            { name: "Jupiter", image: "/textures/jupiter.jpg", color: "#C88B3A" },
+            { name: "Saturn", image: "/textures/saturn.jpg", color: "#FAD5A5" },
+            { name: "Uranus", image: "/textures/uranus.jpg", color: "#4FD0E7" },
+            { name: "Neptune", image: "/textures/neptune.jpg", color: "#4166F5" },
           ].map((p) => (
             <Link key={p.name} to={`/planets`} className="planet-card">
-              <div className="planet-card__thumb" aria-hidden="true" />
+              <div className="planet-card__thumb" aria-hidden="true">
+                <img 
+                  src={p.image} 
+                  alt={p.name}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    borderRadius: "50%",
+                    filter: `drop-shadow(0 0 10px ${p.color})`
+                  }}
+                />
+              </div>
               <div className="planet-card__name">{p.name}</div>
             </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="missions">
-        <div className="section__header">
-          <h2>Featured Missions</h2>
-          <p className="muted">NEO Surveyor · Europa Clipper · Psyche · VERITAS</p>
-        </div>
-        <div className="cards">
-          {[
-            { title: "NEO Surveyor", desc: "Hunts near‑Earth objects (asteroids/comets)." },
-            { title: "Europa Clipper", desc: "Investigates Jupiter’s icy moon Europa." },
-            { title: "Psyche", desc: "Visits a metal‑rich asteroid named Psyche." },
-            { title: "VERITAS", desc: "Future radar mapper of Venus’ surface." },
-          ].map((m) => (
-            <article key={m.title} className="card">
-              <h3>{m.title}</h3>
-              <p>{m.desc}</p>
-              <Link className="card__link" to="/planets">Learn more →</Link>
-            </article>
           ))}
         </div>
       </section>
@@ -145,5 +141,3 @@ export default function Home() {
     </div>
   );
 }
-
-
