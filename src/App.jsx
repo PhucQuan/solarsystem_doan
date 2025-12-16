@@ -4,6 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingScreen from "./components/LoadingScreen";
 import Toast from "./components/Toast";
 import Navbar from "./components/navigation_bar";
+import ChatBot from "./ChatBot";
 import { AppProvider } from "./contexts/AppContext";
 
 // Lazy load all pages for better performance
@@ -36,6 +37,7 @@ function App() {
               </Suspense>
             </main>
             <Toast />
+            <ChatBot />
           </div>
         </Router>
       </AppProvider>
