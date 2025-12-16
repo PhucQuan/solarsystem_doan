@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { fetchApod } from "../services/nasa/apod";
+import ProgressiveImage from "../components/ProgressiveImage";
 
 export default function Home() {
   const [apod, setApod] = useState(null);
@@ -35,11 +36,23 @@ export default function Home() {
 
   const isVideo = apod?.media_type === "video";
 
+  // Memoize planet data to prevent unnecessary re-renders
+  const planetData = useMemo(() => [
+    { name: "Mercury", image: "/textures/mercury.jpg", color: "#8C7853" },
+    { name: "Venus", image: "/textures/venus.jpg", color: "#FFC649" },
+    { name: "Earth", image: "/textures/earth.jpg", color: "#4A90E2" },
+    { name: "Mars", image: "/textures/mars.jpg", color: "#E27B58" },
+    { name: "Jupiter", image: "/textures/jupiter.jpg", color: "#C88B3A" },
+    { name: "Saturn", image: "/textures/saturn.jpg", color: "#FAD5A5" },
+    { name: "Uranus", image: "/textures/uranus.jpg", color: "#4FD0E7" },
+    { name: "Neptune", image: "/textures/neptune.jpg", color: "#4166F5" },
+  ], []);
+
   return (
     <div className="home">
-      <section className="hero" style={apod && !isVideo ? { 
-        backgroundImage: `url(${apod.url})`, 
-        backgroundSize: "cover", 
+      <section className="hero" style={apod && !isVideo ? {
+        backgroundImage: `url(${apod.url})`,
+        backgroundSize: "cover",
         backgroundPosition: "center",
         minHeight: "500px"
       } : { minHeight: "500px" }}>
@@ -101,20 +114,11 @@ export default function Home() {
           <p className="muted">Inner planets, outer giants, and distant dwarfs.</p>
         </div>
         <div className="planet-grid">
-          {[
-            { name: "Mercury", image: "/textures/mercury.jpg", color: "#8C7853" },
-            { name: "Venus", image: "/textures/venus.jpg", color: "#FFC649" },
-            { name: "Earth", image: "/textures/earth.jpg", color: "#4A90E2" },
-            { name: "Mars", image: "/textures/mars.jpg", color: "#E27B58" },
-            { name: "Jupiter", image: "/textures/jupiter.jpg", color: "#C88B3A" },
-            { name: "Saturn", image: "/textures/saturn.jpg", color: "#FAD5A5" },
-            { name: "Uranus", image: "/textures/uranus.jpg", color: "#4FD0E7" },
-            { name: "Neptune", image: "/textures/neptune.jpg", color: "#4166F5" },
-          ].map((p) => (
+          {planetData.map((p) => (
             <Link key={p.name} to={`/planets`} className="planet-card">
               <div className="planet-card__thumb" aria-hidden="true">
-                <img 
-                  src={p.image} 
+                <ProgressiveImage
+                  src={p.image}
                   alt={p.name}
                   style={{
                     width: "100%",

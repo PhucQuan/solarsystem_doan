@@ -1,31 +1,45 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Home from "./pages/Home";
-import Planets from "./pages/Planets";
-import PlanetDetail from "./pages/PlanetDetails";
-import Explore3D from "./pages/Explore3D";
-import Gallery from "./pages/Gallery";
-import Articles from "./pages/Articles";
-import About from "./pages/About";
+import { lazy, Suspense } from "react";
+import ErrorBoundary from "./components/ErrorBoundary";
+import LoadingScreen from "./components/LoadingScreen";
+import Toast from "./components/Toast";
 import Navbar from "./components/navigation_bar";
+import { AppProvider } from "./contexts/AppContext";
+
+// Lazy load all pages for better performance
+const Home = lazy(() => import("./pages/Home"));
+const Planets = lazy(() => import("./pages/Planets"));
+const PlanetDetail = lazy(() => import("./pages/PlanetDetails"));
+const Explore3D = lazy(() => import("./pages/Explore3D"));
+const Gallery = lazy(() => import("./pages/Gallery"));
+const Articles = lazy(() => import("./pages/Articles"));
+const About = lazy(() => import("./pages/About"));
 
 function App() {
   return (
-    <Router>
-      <div className="app-root">
-        <Navbar />
-        <main>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/planets" element={<Planets />} />
-            <Route path="/planets/:id" element={<PlanetDetail />} />
-            <Route path="/explore3d" element={<Explore3D />} />
-            <Route path="/gallery" element={<Gallery />} />
-            <Route path="/articles" element={<Articles />} />
-            <Route path="/about" element={<About />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+    <ErrorBoundary>
+      <AppProvider>
+        <Router>
+          <div className="app-root">
+            <Navbar />
+            <main>
+              <Suspense fallback={<LoadingScreen />}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/planets" element={<Planets />} />
+                  <Route path="/planets/:id" element={<PlanetDetail />} />
+                  <Route path="/explore3d" element={<Explore3D />} />
+                  <Route path="/gallery" element={<Gallery />} />
+                  <Route path="/articles" element={<Articles />} />
+                  <Route path="/about" element={<About />} />
+                </Routes>
+              </Suspense>
+            </main>
+            <Toast />
+          </div>
+        </Router>
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
 

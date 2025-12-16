@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PLANETS } from "../data/solarSystemData";
+import FavoriteButton from "../components/FavoriteButton";
 
 const categories = ["All", "Rocky Planets", "Gas Giants", "Ice Giants"];
 
@@ -8,10 +9,26 @@ export default function Planets() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPlanet, setSelectedPlanet] = useState(null);
 
-  const filteredPlanets =
-    selectedCategory === "All"
+  // Memoize filtered planets to prevent unnecessary re-calculations
+  const filteredPlanets = useMemo(
+    () => selectedCategory === "All"
       ? PLANETS
-      : PLANETS.filter((p) => p.category === selectedCategory);
+      : PLANETS.filter((p) => p.category === selectedCategory),
+    [selectedCategory]
+  );
+
+  // Use useCallback to prevent unnecessary re-renders of child components
+  const handleCategoryChange = useCallback((cat) => {
+    setSelectedCategory(cat);
+  }, []);
+
+  const handlePlanetClick = useCallback((planet) => {
+    setSelectedPlanet(planet);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedPlanet(null);
+  }, []);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0e27", padding: "40px 20px" }}>
@@ -44,7 +61,7 @@ export default function Planets() {
             key={cat}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectedCategory(cat)}
+            onClick={() => handleCategoryChange(cat)}
             style={{
               padding: "12px 24px",
               background:
@@ -81,7 +98,7 @@ export default function Planets() {
             <PlanetCard
               key={planet.id}
               planet={planet}
-              onClick={() => setSelectedPlanet(planet)}
+              onClick={() => handlePlanetClick(planet)}
             />
           ))}
         </AnimatePresence>
@@ -92,7 +109,7 @@ export default function Planets() {
         {selectedPlanet && (
           <PlanetModal
             planet={selectedPlanet}
-            onClose={() => setSelectedPlanet(null)}
+            onClose={handleCloseModal}
           />
         )}
       </AnimatePresence>
@@ -167,6 +184,16 @@ function PlanetCard({ planet, onClick }) {
           }}
         />
       </motion.div>
+
+      {/* Favorite Button */}
+      <div style={{
+        position: 'absolute',
+        top: '12px',
+        right: '12px',
+        zIndex: 10
+      }}>
+        <FavoriteButton item={{ ...planet, type: 'planet' }} size="small" />
+      </div>
 
       {/* Planet Info */}
       <h3
