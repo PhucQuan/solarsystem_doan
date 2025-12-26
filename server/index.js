@@ -6,7 +6,9 @@ import fs from "fs";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 import path from "path";
-import { fetchNasaContext } from "./nasaService.js";
+import { fetchNasaContext, getApodData } from "./nasaService.js";
+import { fetchSolarData } from "./solarService.js";
+import { fetchWikiSummary } from "./wikiService.js";
 
 dotenv.config();
 
@@ -80,11 +82,12 @@ function buildPrompt(userMsg, contexts) {
   if (contexts && contexts.length > 0) {
     const intro =
       `Bạn là SolarBot - trợ lý AI về vũ trụ và hệ Mặt Trời. ` +
-      `Dưới đây là dữ liệu thực từ NASA API. Hãy sử dụng những thông tin này để trả lời câu hỏi của người dùng một cách chi tiết và dễ hiểu. ` +
+      `Dưới đây là dữ liệu thực từ NASA, Wikipedia Tiếng Việt và Solar System OpenData. ` +
+      `Hãy sử dụng những thông tin này để trả lời câu hỏi của người dùng một cách chi tiết và dễ hiểu, ưu tiên tiếng Việt. ` +
       `Nếu người dùng hỏi về thông tin không có trong dữ liệu (ví dụ: năm cụ thể khác), hãy giải thích rằng bạn chỉ có dữ liệu hiện tại từ NASA.`;
 
     const ctx = contexts
-      .map((c, i) => `[Nguồn ${i + 1}] ${c.name}:\n${c.description || "Không có mô tả"}`)
+      .map((c, i) => `[Nguồn ${i + 1}] ${c.name}:\n${JSON.stringify(c, null, 2)}`)
       .join("\n\n");
 
     return `${intro}\n\n=== DỮ LIỆU TỪ NASA ===\n${ctx}\n\n=== CÂU HỎI ===\n${userMsg}\n\n=== TRẢ LỜI (bằng tiếng Việt, chi tiết và thân thiện) ===`;
@@ -107,14 +110,47 @@ app.post("/api/chat", async (req, res) => {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: "Missing message" });
 
-  // Lấy data từ NASA API dựa trên câu hỏi
-  const nasaCtx = await fetchNasaContext(message);
-  const contexts = nasaCtx || [];
-  
-  console.log('[Chat API] Contexts received:', contexts.length);
-  if (contexts.length > 0) {
-    console.log('[Chat API] First context:', contexts[0].name);
-  }
+    // Lấy data từ NASA API dựa trên câu hỏi
+    const nasaCtx = await fetchNasaContext(message);
+    const contexts = nasaCtx || [];
+
+    // Lấy data từ Solar System OpenData API (ưu tiên cho các câu hỏi về thông số hành tinh)
+    const solarData = await fetchSolarData(message);
+    if (solarData) {
+      contexts.unshift({
+        name: `Dữ liệu chi tiết về ${solarData.name}`,
+        description: `Thông số vật lý và quỹ đạo:
+      - Khối lượng: ${solarData.mass}
+      - Trọng lực: ${solarData.gravity} m/s²
+      - Bán kính trung bình: ${solarData.meanRadius} km
+      - Nhiệt độ TB: ${solarData.avgTemp} K
+      - Chu kỳ quỹ đạo: ${solarData.sideralOrbit} ngày
+      - Số lượng mặt trăng: ${solarData.moons}
+      - Phát hiện bởi: ${solarData.discoveredBy || "Không rõ"} (${solarData.discoveryDate || "Cổ đại"})
+      `,
+        source: "Solar System OpenData"
+      });
+    }
+
+    // Lấy data từ Wikipedia VN (ưu tiên cho các câu hỏi định nghĩa, kiến thức chung)
+    // Chỉ gọi Wiki nếu câu hỏi ngắn gọn (tên 1 khái niệm) hoặc hỏi "là gì", "nghĩa là gì"
+    const isConceptQuestion = message.length < 50 || message.toLowerCase().includes("là gì") || message.toLowerCase().includes("ai là");
+
+    if (isConceptQuestion) {
+      const wikiData = await fetchWikiSummary(message);
+      if (wikiData) {
+        contexts.push({
+          name: wikiData.title,
+          description: wikiData.summary,
+          source: "Wikipedia Tiếng Việt"
+        });
+      }
+    }
+
+    console.log('[Chat API] Contexts received:', contexts.length);
+    if (contexts.length > 0) {
+      console.log('[Chat API] First context:', contexts[0].name);
+    }
 
     // Build prompt
     const prompt = buildPrompt(message, contexts);
@@ -146,6 +182,105 @@ app.post("/api/chat", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
+
+// Danh sách chủ đề mặc định cho blog
+const BLOG_TOPICS = [
+  { term: "Vụ nổ Big Bang", category: "Science" },
+  { term: "Hố đen", category: "Phenomena" },
+  { term: "Hệ Mặt Trời", category: "Planets" },
+  { term: "Sao chổi", category: "Phenomena" },
+  { term: "Thiên hà", category: "Science" },
+  { term: "Sao Hỏa", category: "Planets" },
+  { term: "Mặt Trăng", category: "Planets" },
+  { term: "Nhật thực", category: "Phenomena" }
+];
+
+// Cache simple: lưu kết quả blog để đỡ gọi nhiều
+let blogCache = null;
+let lastCacheTime = 0;
+const CACHE_DURATION = 1000 * 60 * 60; // 1 tiếng
+
+app.get("/api/articles", async (req, res) => {
+  try {
+    const now = Date.now();
+    if (blogCache && (now - lastCacheTime < CACHE_DURATION)) {
+      return res.json(blogCache);
+    }
+
+    const articles = [];
+
+    // 1. Lấy APOD (Ảnh thiên văn trong ngày)
+    try {
+      const apod = await getApodData(); // Lấy ảnh hôm nay
+      if (apod && apod.length > 0) {
+        articles.push({
+          id: 'apod-' + now,
+          title: apod[0].name, // Title từ NASA
+          category: "Featured",
+          date: new Date().toISOString().split('T')[0],
+          readTime: "3 min read",
+          image: apod[0].imageUrl,
+          excerpt: apod[0].description.substring(0, 150) + "...",
+          content: apod[0].description,
+          source: "NASA APOD"
+        });
+      }
+    } catch (e) {
+      console.error("APOD Error", e);
+    }
+
+    // 2. Lấy bài từ Wikipedia
+    // Để nhanh, ta lấy ngẫu nhiên 3-4 topics mỗi lần hoặc lấy hết (với promise.all)
+    // Ở đây lấy hết nhưng giới hạn số lượng request đồng thời nếu cần
+    const wikiPromises = BLOG_TOPICS.map(async (topic, index) => {
+      const data = await fetchWikiSummary(topic.term);
+      if (data) {
+        return {
+          id: 'wiki-' + index,
+          title: data.title,
+          category: topic.category,
+          date: new Date().toISOString().split('T')[0],
+          readTime: "5 min read",
+          image: data.image || "/textures/default_space.jpg", // Fallback image
+          excerpt: data.summary.substring(0, 120) + "...",
+          content: data.summary + `\n\nNguồn: Wikipedia Tiếng Việt\nLink: ${data.url}`,
+          source: "Wikipedia VN"
+        };
+      }
+      return null;
+    });
+
+    const wikiArticles = (await Promise.all(wikiPromises)).filter(a => a !== null);
+    articles.push(...wikiArticles);
+
+    blogCache = articles;
+    lastCacheTime = now;
+
+    res.json(articles);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch articles" });
+  }
+});
+
+// API endpoint for planet details (used by 3D Explorer)
+app.get("/api/planet/:name", async (req, res) => {
+  try {
+    const planetName = req.params.name;
+    console.log(`[API] Fetching planet data for: ${planetName}`);
+
+    const planetData = await fetchSolarData(planetName);
+
+    if (!planetData) {
+      return res.status(404).json({ error: "Planet not found" });
+    }
+
+    res.json(planetData);
+  } catch (err) {
+    console.error("[API] Planet fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch planet data" });
   }
 });
 

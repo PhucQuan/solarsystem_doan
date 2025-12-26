@@ -15,6 +15,7 @@ const Explore3D = lazy(() => import("./pages/Explore3D"));
 const Gallery = lazy(() => import("./pages/Gallery"));
 const Articles = lazy(() => import("./pages/Articles"));
 const About = lazy(() => import("./pages/About"));
+const Quiz = lazy(() => import("./pages/Quiz"));
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
                   <Route path="/gallery" element={<Gallery />} />
                   <Route path="/articles" element={<Articles />} />
                   <Route path="/about" element={<About />} />
+                  <Route path="/quiz" element={<Quiz />} />
                 </Routes>
               </Suspense>
             </main>

@@ -6,7 +6,7 @@ import PlanetLabel from "./PlanetLabel";
 import Atmosphere from "./Atmosphere";
 import SaturnRings from "./SaturnRings";
 
-export default function Planet({ data, onClick, isPaused }) {
+export default function Planet({ data, onClick, isPaused, simulationTime = 0 }) {
   const meshRef = useRef();
   const cloudsRef = useRef();
   const groupRef = useRef();
@@ -17,7 +17,7 @@ export default function Planet({ data, onClick, isPaused }) {
   // Load textures manually
   useEffect(() => {
     const loader = new TextureLoader();
-    
+
     if (data.texturePath) {
       loader.load(
         data.texturePath,
@@ -35,7 +35,7 @@ export default function Planet({ data, onClick, isPaused }) {
         }
       );
     }
-    
+
     if (data.cloudsTexture) {
       loader.load(
         data.cloudsTexture,
@@ -51,10 +51,8 @@ export default function Planet({ data, onClick, isPaused }) {
     }
   }, [data.texturePath, data.cloudsTexture, data.name]);
 
-  // Animation: Quay quanh trục và quỹ đạo
-  useFrame(({ clock }) => {
-    const elapsed = clock.getElapsedTime();
-
+  // Animation: Quay quanh trục và quỹ đạo (sử dụng simulationTime từ props)
+  useFrame(() => {
     if (meshRef.current) {
       // Tự quay quanh trục của hành tinh
       meshRef.current.rotation.y += data.rotationSpeed;
@@ -66,8 +64,8 @@ export default function Planet({ data, onClick, isPaused }) {
     }
 
     if (groupRef.current && !data.isSun && !isPaused) {
-      // Quay quanh Mặt Trời theo quỹ đạo tròn với góc bắt đầu (pause when focused)
-      const angle = elapsed * data.speed + (data.startAngle || 0);
+      // Quay quanh Mặt Trời theo quỹ đạo tròn dựa trên simulationTime
+      const angle = simulationTime * data.speed + (data.startAngle || 0);
       groupRef.current.position.x = Math.cos(angle) * data.distance;
       groupRef.current.position.z = Math.sin(angle) * data.distance;
     }
@@ -140,6 +138,7 @@ export default function Planet({ data, onClick, isPaused }) {
           <sphereGeometry args={[data.size, 64, 64]} />
           {data.isSun ? (
             <meshStandardMaterial
+              key={texture ? 'textured' : 'solid'}
               map={texture || undefined}
               color={texture ? "#ffffff" : data.color}
               emissive={texture ? "#FFA500" : data.color}
@@ -149,6 +148,7 @@ export default function Planet({ data, onClick, isPaused }) {
             />
           ) : (
             <meshStandardMaterial
+              key={texture ? 'textured' : 'solid'}
               map={texture || undefined}
               color={texture ? "#ffffff" : data.color}
               roughness={0.7}

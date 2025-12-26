@@ -1,15 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ARTICLES, CATEGORIES } from "../data/articles";
+import LoadingScreen from "../components/LoadingScreen";
+
+// Categories are still static for filtering purposes
+export const CATEGORIES = ["All", "Science", "Planets", "Phenomena", "Featured"];
 
 export default function Articles() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedArticle, setSelectedArticle] = useState(null);
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("http://localhost:3001/api/articles")
+      .then((res) => res.json())
+      .then((data) => {
+        setArticles(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load articles:", err);
+        setLoading(false);
+      });
+  }, []);
 
   const filteredArticles =
     selectedCategory === "All"
-      ? ARTICLES
-      : ARTICLES.filter((a) => a.category === selectedCategory);
+      ? articles
+      : articles.filter((a) => a.category === selectedCategory);
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0e27", padding: "40px 20px" }}>
@@ -19,11 +39,11 @@ export default function Articles() {
         animate={{ opacity: 1, y: 0 }}
         style={{ textAlign: "center", marginBottom: "40px", maxWidth: "800px", margin: "0 auto 40px" }}
       >
-        <h1 style={{ fontSize: "48px", color: "#fff", marginBottom: "12px" }}>
-          Learn About Space
+        <h1 style={{ fontSize: "48px", color: "#fff", marginBottom: "12px", fontFamily: "'Orbitron', sans-serif" }}>
+          Vũ Trụ Kỳ Thú
         </h1>
         <p style={{ color: "#888", fontSize: "18px" }}>
-          Explore fascinating articles about our solar system and beyond
+          Khám phá những kiến thức thú vị về hệ Mặt Trời và vũ trụ bao la
         </p>
       </motion.div>
 
@@ -44,13 +64,13 @@ export default function Articles() {
             whileTap={{ scale: 0.95 }}
             onClick={() => setSelectedCategory(cat)}
             style={{
-              padding: "10px 20px",
+              padding: "8px 20px",
               background:
                 selectedCategory === cat
                   ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
                   : "rgba(255, 255, 255, 0.1)",
-              border: selectedCategory === cat ? "2px solid #667eea" : "2px solid transparent",
-              borderRadius: "8px",
+              border: selectedCategory === cat ? "1px solid #764ba2" : "1px solid rgba(255, 255, 255, 0.1)",
+              borderRadius: "20px",
               color: "#fff",
               fontSize: "14px",
               cursor: "pointer",
