@@ -11,6 +11,18 @@ class RAGService {
     this.vocabulary = new Map();
     this.idfScores = new Map();
     this.initialized = false;
+    
+    // Configuration constants for RAG behavior
+    // SIMILARITY_THRESHOLD: Minimum cosine similarity score (0-1) for a document to be considered relevant
+    // Lower values = more permissive (more results), Higher values = more strict (fewer, more relevant results)
+    this.SIMILARITY_THRESHOLD = 0.01;
+    
+    // DEFAULT_TOP_K: Default number of most relevant documents to retrieve
+    // Can be overridden per query for flexibility
+    this.DEFAULT_TOP_K = 5;
+    
+    // Vietnamese character regex for tokenization - includes all diacritics
+    this.VIETNAMESE_CHARS = 'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ';
   }
 
   // Initialize the RAG system with local data
@@ -260,29 +272,35 @@ class RAGService {
 
   // Tokenize text into terms
   tokenize(text) {
-    // Normalize Vietnamese text but keep it readable
-    const normalized = text
-      .toLowerCase()
-      .trim();
+    const normalized = text.toLowerCase().trim();
     
-    // Split and filter
-    const terms = normalized
-      .replace(/[^\w\sàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/g, ' ')
+    // Get Vietnamese tokens
+    const vietnameseTokens = this._tokenizeVietnamese(normalized);
+    
+    // Get ASCII tokens for better matching
+    const asciiTokens = this._tokenizeAscii(normalized);
+    
+    // Combine both versions and deduplicate
+    return [...new Set([...vietnameseTokens, ...asciiTokens])];
+  }
+
+  // Tokenize Vietnamese text preserving diacritics
+  _tokenizeVietnamese(text) {
+    return text
+      .replace(new RegExp(`[^\\w\\s${this.VIETNAMESE_CHARS}]`, 'g'), ' ')
       .split(/\s+/)
-      .filter(term => term.length > 1); // Filter out very short terms
-    
-    // Also create ASCII version for better matching
-    const asciiTerms = text
-      .toLowerCase()
+      .filter(term => term.length > 1);
+  }
+
+  // Tokenize with ASCII normalization
+  _tokenizeAscii(text) {
+    return text
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
       .replace(/đ/g, 'd')
       .replace(/[^\w\s]/g, ' ')
       .split(/\s+/)
       .filter(term => term.length > 1);
-    
-    // Combine both versions
-    return [...new Set([...terms, ...asciiTerms])];
   }
 
   // Calculate cosine similarity between two vectors
@@ -334,7 +352,7 @@ class RAGService {
 
     // Sort by score and return top K
     return scores
-      .filter(s => s.score > 0.01) // Filter out very low scores
+      .filter(s => s.score > this.SIMILARITY_THRESHOLD)
       .sort((a, b) => b.score - a.score)
       .slice(0, topK)
       .map(s => s.document);
@@ -408,7 +426,7 @@ class RAGService {
   }
 
   // Main RAG function: retrieve and generate
-  async query(userQuery) {
+  async query(userQuery, topK = this.DEFAULT_TOP_K) {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -416,7 +434,7 @@ class RAGService {
     console.log('[RAG Service] Processing query:', userQuery);
 
     // Retrieve relevant documents
-    const retrievedDocs = this.retrieve(userQuery, 5);
+    const retrievedDocs = this.retrieve(userQuery, topK);
     
     console.log('[RAG Service] Retrieved', retrievedDocs.length, 'documents');
     
