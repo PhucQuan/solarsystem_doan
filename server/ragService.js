@@ -3,6 +3,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { vietnamSpaceData, vietnamConstellations } from './vietnamKnowledge.js';
 
 class RAGService {
   constructor() {
@@ -232,7 +233,11 @@ class RAGService {
       }
     ];
 
-    this.documents.push(...knowledgeBase);
+    // Add Vietnam space and astronomy data
+    this.documents.push(...knowledgeBase, ...vietnamSpaceData, ...vietnamConstellations);
+    
+    console.log(`[RAG Service] Added ${vietnamSpaceData.length} Vietnam space documents`);
+    console.log(`[RAG Service] Added ${vietnamConstellations.length} Vietnam constellation documents`);
   }
 
   // Build TF-IDF index for semantic search
@@ -347,12 +352,30 @@ class RAGService {
       queryVector.set(term, freq * idf);
     });
 
-    // Calculate similarity scores
-    const scores = this.embeddings.map((docVector, index) => ({
-      index,
-      score: this.cosineSimilarity(queryVector, docVector),
-      document: this.documents[index]
-    }));
+    // Calculate similarity scores with Vietnam boost
+    const scores = this.embeddings.map((docVector, index) => {
+      const doc = this.documents[index];
+      let score = this.cosineSimilarity(queryVector, docVector);
+      
+      // Boost Vietnam-related documents
+      if (this.isVietnamQuery(query) && this.isVietnamDocument(doc)) {
+        score *= 3.0; // 3x boost for Vietnam queries matching Vietnam docs
+        console.log(`[RAG Service] Vietnam boost applied to: ${doc.name}`);
+      }
+      
+      // Boost exact name matches
+      const queryLower = query.toLowerCase();
+      const docNameLower = doc.name.toLowerCase();
+      if (queryLower.includes(docNameLower) || docNameLower.includes(queryLower)) {
+        score *= 2.0; // 2x boost for name matches
+      }
+      
+      return {
+        index,
+        score,
+        document: doc
+      };
+    });
 
     // Sort by score and return top K
     return scores
@@ -360,6 +383,29 @@ class RAGService {
       .sort((a, b) => b.score - a.score)
       .slice(0, topK)
       .map(s => s.document);
+  }
+
+  // Check if query is Vietnam-related
+  isVietnamQuery(query) {
+    const vietnamKeywords = [
+      'việt nam', 'vietnam', 'phạm tuân', 'vnredsat', 'vinasat', 'lotosat',
+      'sao mai', 'sao hôm', 'lịch âm', 'tết', 'con giáp', 'thiên văn việt nam',
+      'vệ tinh việt nam', 'phi hành gia việt nam', 'nanodragon', 'microdragon'
+    ];
+    const q = query.toLowerCase();
+    return vietnamKeywords.some(keyword => q.includes(keyword));
+  }
+
+  // Check if document is Vietnam-related
+  isVietnamDocument(doc) {
+    const vietnamDocIds = [
+      'vietnam_astronomy', 'vietnam_space_program', 'vietnam_geography_space',
+      'vietnam_traditional_astronomy', 'vietnam_scientists', 'pham_tuan_astronaut',
+      'vietnam_zodiac'
+    ];
+    return vietnamDocIds.includes(doc.id) || 
+           doc.text.toLowerCase().includes('việt nam') ||
+           doc.text.toLowerCase().includes('vietnam');
   }
 
   // Generate response using templates (fallback when API is unavailable)

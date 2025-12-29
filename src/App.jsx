@@ -16,6 +16,7 @@ const Gallery = lazy(() => import("./pages/Gallery"));
 const Articles = lazy(() => import("./pages/Articles"));
 const About = lazy(() => import("./pages/About"));
 const Quiz = lazy(() => import("./pages/Quiz"));
+const Analytics = lazy(() => import("./pages/Analytics"));
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
                   <Route path="/articles" element={<Articles />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/quiz" element={<Quiz />} />
+                  <Route path="/analytics" element={<Analytics />} />
                 </Routes>
               </Suspense>
             </main>

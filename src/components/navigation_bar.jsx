@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { to: "/gallery", label: "Gallery" },
   { to: "/articles", label: "Learn" },
   { to: "/quiz", label: "Quiz" },
+  { to: "/analytics", label: "Analytics" },
   { to: "/about", label: "About" }
 ];
 

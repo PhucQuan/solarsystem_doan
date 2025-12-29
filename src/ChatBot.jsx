@@ -4,11 +4,24 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: "bot", text: "Xin chào! Mình là SolarBot với công nghệ RAG (Retrieval-Augmented Generation). Mình có thể trả lời câu hỏi về hệ Mặt Trời ngay cả khi không có kết nối API! Hỏi mình về các hành tinh, thiên thạch, sao chổi, hay bất cứ điều gì về vũ trụ nhé! 🚀" },
+    { role: "bot", text: "Xin chào! Mình là SolarBot với công nghệ RAG và NASA API. Mình có thể trả lời về hệ Mặt Trời, vũ trụ, và cả chương trình vũ trụ Việt Nam! Hỏi mình bất cứ điều gì nhé! 🚀🇻🇳" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const listRef = useRef(null);
+
+  // Suggested questions with Vietnam content
+  const suggestedQuestions = [
+    "Sao Hỏa có gì đặc biệt?",
+    "Việt Nam có vệ tinh nào?", 
+    "Phạm Tuân là ai?",
+    "Hố đen hoạt động như thế nào?",
+    "Lịch âm Việt Nam ra sao?",
+    "Có thiên thạch nào bay qua Trái Đất hôm nay không?",
+    "VNREDSat-1 là gì?",
+    "Sao Mai và Sao Hôm khác nhau thế nào?"
+  ];
 
   useEffect(() => {
     if (listRef.current) {
@@ -16,19 +29,21 @@ export default function ChatBot() {
     }
   }, [messages, loading]);
 
-  async function sendMessage() {
-    if (!input.trim()) return;
+  async function sendMessage(messageText = null) {
+    const messageToSend = messageText || input.trim();
+    if (!messageToSend) return;
 
-    const userMsg = { role: "user", text: input };
+    const userMsg = { role: "user", text: messageToSend };
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
+    setShowSuggestions(false); // Hide suggestions after first message
 
     try {
       const resp = await fetch("http://localhost:3001/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: messageToSend }),
       });
 
       const data = await resp.json();
@@ -224,6 +239,57 @@ export default function ChatBot() {
                     ⚙️
                   </motion.span>
                   Đang suy nghĩ...
+                </motion.div>
+              )}
+              
+              {/* Suggested Questions */}
+              {showSuggestions && messages.length === 1 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    marginTop: '16px'
+                  }}
+                >
+                  <p style={{ 
+                    color: '#888', 
+                    fontSize: '12px', 
+                    margin: 0,
+                    textAlign: 'center'
+                  }}>
+                    💡 Gợi ý câu hỏi:
+                  </p>
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '6px',
+                    justifyContent: 'center'
+                  }}>
+                    {suggestedQuestions.slice(0, 6).map((question, idx) => (
+                      <motion.button
+                        key={idx}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => sendMessage(question)}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          borderRadius: '12px',
+                          padding: '6px 10px',
+                          color: '#fff',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        {question}
+                      </motion.button>
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </div>

@@ -10,6 +10,7 @@ import { fetchNasaContext, getApodData } from "./nasaService.js";
 import { fetchSolarData } from "./solarService.js";
 import { fetchWikiSummary } from "./wikiService.js";
 import ragService from "./ragService.js";
+import { analytics } from "./analytics.js";
 
 dotenv.config();
 
@@ -112,6 +113,11 @@ function buildPrompt(userMsg, contexts) {
 
 // API endpoint chính - Enhanced RAG
 app.post("/api/chat", async (req, res) => {
+  const startTime = Date.now();
+  let success = true;
+  let method = 'unknown';
+  let contextsUsed = 0;
+  
   try {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: "Missing message" });
@@ -179,6 +185,7 @@ app.post("/api/chat", async (req, res) => {
     }
 
     console.log('[Chat API] Total contexts collected:', contexts.length);
+    contextsUsed = contexts.length;
 
     // Build prompt with all collected contexts
     const prompt = buildPrompt(message, contexts);
@@ -194,6 +201,7 @@ app.post("/api/chat", async (req, res) => {
       const result = await model.generateContent(prompt);
       reply = result.response.text();
       generationMethod = 'gemini_api';
+      method = generationMethod;
       console.log('[Chat API] Response generated via Gemini API');
     } catch (geminiErr) {
       console.error("[Chat API] Gemini API error:", geminiErr.message);
@@ -203,13 +211,20 @@ app.post("/api/chat", async (req, res) => {
         const templateResponse = ragService.generateTemplateResponse(message, ragResults.retrievedDocs);
         reply = templateResponse.reply;
         generationMethod = templateResponse.method;
+        method = generationMethod;
         console.log('[Chat API] Using template-based generation (RAG fallback)');
       } else {
         // Last resort: simple error message
         reply = "Xin lỗi, hiện tại mình đang gặp sự cố kết nối với API. Vui lòng thử lại sau hoặc hỏi một câu hỏi khác về hệ Mặt Trời.";
         generationMethod = 'error_fallback';
+        method = generationMethod;
+        success = false;
       }
     }
+
+    // Track analytics
+    const responseTime = Date.now() - startTime;
+    analytics.trackQuery(message, responseTime, method, contextsUsed, success);
 
     return res.json({
       reply,
@@ -219,7 +234,35 @@ app.post("/api/chat", async (req, res) => {
     });
   } catch (err) {
     console.error('[Chat API] Server error:', err);
+    
+    // Track error
+    const responseTime = Date.now() - startTime;
+    analytics.trackQuery(message || 'unknown', responseTime, 'server_error', 0, false);
+    
     res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
+
+// Analytics endpoint
+app.get("/api/analytics", (req, res) => {
+  try {
+    const stats = analytics.getStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('[Analytics API] Error:', err);
+    res.status(500).json({ error: "Analytics error" });
+  }
+});
+
+// Recent queries endpoint  
+app.get("/api/analytics/queries", (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const queries = analytics.getRecentQueries(limit);
+    res.json(queries);
+  } catch (err) {
+    console.error('[Analytics API] Error:', err);
+    res.status(500).json({ error: "Analytics error" });
   }
 });
 
