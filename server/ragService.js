@@ -91,9 +91,38 @@ class RAGService {
           hệ mặt trời solar system bao gồm mặt trời và tất cả các thiên thể
           quay quanh nó gồm 8 hành tinh thiên thạch sao chổi tiểu hành tinh
           hệ mặt trời được hình thành cách đây khoảng 4.6 tỷ năm
+          thủy kim địa hỏa mộc thổ thiên vương hải vương
         `,
         data: {
           description: 'Hệ Mặt Trời bao gồm Mặt Trời và tất cả các thiên thể quay quanh nó, gồm 8 hành tinh: Sao Thủy, Sao Kim, Trái Đất, Sao Hỏa, Sao Mộc, Sao Thổ, Sao Thiên Vương và Sao Hải Vương. Hệ Mặt Trời được hình thành cách đây khoảng 4.6 tỷ năm từ một đám mây khí và bụi vũ trụ.'
+        }
+      },
+      {
+        id: 'sun',
+        type: 'concept',
+        name: 'Mặt Trời',
+        text: `
+          mặt trời sun sao ngôi sao trung tâm hệ mặt trời
+          là quả cầu khí nóng plasma năng lượng hạt nhân
+          nhiệt độ bề mặt 5500 độ lõi 15 triệu độ
+          ánh sáng mặt trời mất 8 phút đến trái đất
+        `,
+        data: {
+          description: 'Mặt Trời là ngôi sao ở trung tâm Hệ Mặt Trời, là nguồn năng lượng chính cho Trái Đất. Mặt Trời là một quả cầu khí nóng gồm chủ yếu hydro và heli, với nhiệt độ bề mặt khoảng 5,500°C và lõi đạt 15 triệu°C. Ánh sáng từ Mặt Trời mất khoảng 8 phút để đến Trái Đất.'
+        }
+      },
+      {
+        id: 'moon',
+        type: 'concept',
+        name: 'Mặt Trăng',
+        text: `
+          mặt trăng moon vệ tinh tự nhiên trái đất
+          quay quanh trái đất ảnh hưởng thủy triều
+          có bề mặt đầy hố va đập thiên thạch
+          con người đã đặt chân lên năm 1969 apollo 11
+        `,
+        data: {
+          description: 'Mặt Trăng là vệ tinh tự nhiên duy nhất của Trái Đất. Nó quay quanh Trái Đất và ảnh hưởng đến thủy triều trên các đại dương. Bề mặt Mặt Trăng đầy các hố va đập do thiên thạch tạo ra. Con người đã đặt chân lên Mặt Trăng lần đầu tiên vào năm 1969 trong sứ mệnh Apollo 11.'
         }
       },
       {
@@ -103,7 +132,7 @@ class RAGService {
         text: `
           thiên thạch asteroid tiểu hành tinh là các khối đá kim loại
           trong vũ trụ nhỏ hơn hành tinh chủ yếu nằm trong vành đai
-          giữa sao hỏa và sao mộc
+          giữa sao hỏa và sao mộc sao băng meteorite
         `,
         data: {
           description: 'Thiên thạch (asteroid/tiểu hành tinh) là các khối đá và kim loại trong vũ trụ, nhỏ hơn hành tinh. Phần lớn thiên thạch nằm trong vành đai thiên thạch giữa Sao Hỏa và Sao Mộc. Khi thiên thạch đi vào khí quyển Trái Đất và cháy sáng, ta gọi là sao băng.'
@@ -116,9 +145,10 @@ class RAGService {
         text: `
           sao chổi comet là các khối băng đá bụi bay quanh mặt trời
           khi đến gần mặt trời băng bay hơi tạo đuôi sáng dài
+          halley sao chổi nổi tiếng xuất hiện 76 năm một lần
         `,
         data: {
-          description: 'Sao chổi là các khối băng, đá và bụi bay quanh Mặt Trời theo quỹ đạo elip. Khi đến gần Mặt Trời, băng trên bề mặt sao chổi bay hơi, tạo thành đuôi sáng dài đặc trưng.'
+          description: 'Sao chổi là các khối băng, đá và bụi bay quanh Mặt Trời theo quỹ đạo elip. Khi đến gần Mặt Trời, băng trên bề mặt sao chổi bay hơi, tạo thành đuôi sáng dài đặc trưng. Sao chổi Halley là sao chổi nổi tiếng nhất, xuất hiện khoảng 76 năm một lần.'
         }
       },
       {
@@ -128,10 +158,10 @@ class RAGService {
         text: `
           hố đen black hole là vùng không gian có lực hấp dẫn cực mạnh
           không gì có thể thoát ra kể cả ánh sáng hình thành từ
-          sao lớn sụp đổ
+          sao lớn sụp đổ chân trời sự kiện event horizon
         `,
         data: {
-          description: 'Hố đen là vùng không gian có lực hấp dẫn cực mạnh, không gì có thể thoát ra, kể cả ánh sáng. Hố đen hình thành khi một ngôi sao rất lớn sụp đổ vào cuối vòng đời của nó.'
+          description: 'Hố đen là vùng không gian có lực hấp dẫn cực mạnh, không gì có thể thoát ra, kể cả ánh sáng. Hố đen hình thành khi một ngôi sao rất lớn sụp đổ vào cuối vòng đời của nó. Ranh giới của hố đen gọi là "chân trời sự kiện" (event horizon).'
         }
       },
       {
@@ -141,10 +171,49 @@ class RAGService {
         text: `
           thiên hà galaxy là hệ thống khổng lồ gồm hàng tỷ ngôi sao
           hành tinh khí và bụi vũ trụ trái đất thuộc thiên hà ngân hà
-          milky way
+          milky way xoắn ốc spiral hình elip elliptical bất thường irregular
         `,
         data: {
-          description: 'Thiên hà là hệ thống khổng lồ gồm hàng tỷ ngôi sao, hành tinh, khí và bụi vũ trụ, được liên kết với nhau bởi lực hấp dẫn. Trái Đất thuộc thiên hà Ngân Hà (Milky Way), một thiên hà xoắn ốc có khoảng 200-400 tỷ ngôi sao.'
+          description: 'Thiên hà là hệ thống khổng lồ gồm hàng tỷ ngôi sao, hành tinh, khí và bụi vũ trụ, được liên kết với nhau bởi lực hấp dẫn. Trái Đất thuộc thiên hà Ngân Hà (Milky Way), một thiên hà xoắn ốc có khoảng 200-400 tỷ ngôi sao. Thiên hà có nhiều dạng: xoắn ốc, elip, và bất thường.'
+        }
+      },
+      {
+        id: 'orbit',
+        type: 'concept',
+        name: 'Quỹ đạo',
+        text: `
+          quỹ đạo orbit là đường đi của thiên thể quanh vật thể khác
+          hành tinh quay quanh mặt trời theo quỹ đạo elip
+          lực hấp dẫn giữ thiên thể trên quỹ đạo chu kỳ
+        `,
+        data: {
+          description: 'Quỹ đạo là đường đi của một thiên thể khi nó di chuyển quanh một thiên thể khác. Các hành tinh quay quanh Mặt Trời theo quỹ đạo hình elip. Lực hấp dẫn giữ các thiên thể trên quỹ đạo của chúng. Chu kỳ quỹ đạo là thời gian để hoàn thành một vòng quay.'
+        }
+      },
+      {
+        id: 'eclipse',
+        type: 'concept',
+        name: 'Nhật thực và Nguyệt thực',
+        text: `
+          nhật thực solar eclipse là hiện tượng mặt trăng che mặt trời
+          nguyệt thực lunar eclipse là trái đất che mặt trăng
+          toàn phần partial nhật thực vành khuyên annular
+        `,
+        data: {
+          description: 'Nhật thực xảy ra khi Mặt Trăng đi vào giữa Trái Đất và Mặt Trời, che khuất Mặt Trời. Nguyệt thực xảy ra khi Trái Đất đi vào giữa Mặt Trời và Mặt Trăng, che khuất Mặt Trăng. Nhật thực có thể là toàn phần (total), một phần (partial), hoặc vành khuyên (annular).'
+        }
+      },
+      {
+        id: 'gravity',
+        type: 'concept',
+        name: 'Lực hấp dẫn',
+        text: `
+          lực hấp dẫn gravity là lực hút giữa các vật thể có khối lượng
+          newton einstein tương đối rộng general relativity
+          giữ hành tinh quay quanh mặt trời và chúng ta trên trái đất
+        `,
+        data: {
+          description: 'Lực hấp dẫn là lực hút giữa các vật thể có khối lượng. Newton đã phát hiện ra định luật vạn vật hấp dẫn, sau đó Einstein mô tả chi tiết hơn qua thuyết tương đối rộng. Lực hấp dẫn giữ các hành tinh quay quanh Mặt Trời và giữ chúng ta trên bề mặt Trái Đất.'
         }
       }
     ];
