@@ -185,7 +185,7 @@ export default function ChatBot() {
                   {m.metadata && m.role === "bot" && (
                     <div style={{
                       marginTop: 4,
-                      fontSize: 10,
+                      fontSize: 11,
                       color: "#666",
                       fontStyle: "italic",
                       maxWidth: "85%"

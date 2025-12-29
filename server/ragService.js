@@ -15,6 +15,8 @@ class RAGService {
     // Configuration constants for RAG behavior
     // SIMILARITY_THRESHOLD: Minimum cosine similarity score (0-1) for a document to be considered relevant
     // Lower values = more permissive (more results), Higher values = more strict (fewer, more relevant results)
+    // 0.01 is deliberately low to ensure we don't miss relevant documents, especially with TF-IDF which can have low scores
+    // For production, consider tuning this value based on your specific use case (typically 0.1-0.3 for stricter matching)
     this.SIMILARITY_THRESHOLD = 0.01;
     
     // DEFAULT_TOP_K: Default number of most relevant documents to retrieve
@@ -255,7 +257,9 @@ class RAGService {
     // Calculate IDF scores
     this.vocabulary.forEach((_, term) => {
       const docCount = docTermFreq.filter(tf => tf.has(term)).length;
-      const idf = Math.log(this.documents.length / (docCount + 1));
+      // IDF formula: log(N / df) where N is total docs, df is document frequency
+      // Guard against division by zero (though shouldn't happen in practice)
+      const idf = docCount > 0 ? Math.log(this.documents.length / docCount) : 0;
       this.idfScores.set(term, idf);
     });
 
