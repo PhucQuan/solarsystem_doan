@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: "bot", text: "Xin chào! Mình là SolarBot với NASA API. Hỏi mình về hệ Mặt Trời, thiên thạch, sao Hỏa, hay bất cứ điều gì về vũ trụ nhé!" },
+    { role: "bot", text: "Xin chào! Mình là SolarBot với công nghệ RAG (Retrieval-Augmented Generation). Mình có thể trả lời câu hỏi về hệ Mặt Trời ngay cả khi không có kết nối API! Hỏi mình về các hành tinh, thiên thạch, sao chổi, hay bất cứ điều gì về vũ trụ nhé! 🚀" },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,15 @@ export default function ChatBot() {
       const data = await resp.json();
       const botText = data?.reply || "Mình không có câu trả lời.";
       const sources = data?.sources || [];
-      setMessages((m) => [...m, { role: "bot", text: botText, sources }]);
+      const method = data?.method || 'unknown';
+      const contextsUsed = data?.contextsUsed || 0;
+      
+      setMessages((m) => [...m, { 
+        role: "bot", 
+        text: botText, 
+        sources,
+        metadata: { method, contextsUsed }
+      }]);
     } catch (e) {
       setMessages((m) => [...m, { role: "bot", text: "Lỗi server hoặc API. Đảm bảo backend đang chạy trên port 3001." }]);
     } finally {
@@ -120,7 +128,7 @@ export default function ChatBot() {
                   borderRadius: '10px',
                   fontWeight: '500'
                 }}>
-                  NASA API
+                  RAG + AI
                 </span>
               </h3>
               <p style={{
@@ -174,6 +182,17 @@ export default function ChatBot() {
                   >
                     {m.text}
                   </div>
+                  {m.metadata && m.role === "bot" && (
+                    <div style={{
+                      marginTop: 4,
+                      fontSize: 10,
+                      color: "#666",
+                      fontStyle: "italic",
+                      maxWidth: "85%"
+                    }}>
+                      🤖 Method: {m.metadata.method} | Contexts: {m.metadata.contextsUsed}
+                    </div>
+                  )}
                   {m.sources && m.sources.length > 0 && (
                     <div style={{
                       marginTop: 6,
