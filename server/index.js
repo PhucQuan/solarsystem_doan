@@ -11,6 +11,8 @@ import { fetchSolarData } from "./solarService.js";
 import { fetchWikiSummary } from "./wikiService.js";
 import ragService from "./ragService.js";
 import { analytics } from "./analytics.js";
+import { conversationHandler } from "./conversationHandler.js";
+import { intelligentGenerator } from "./intelligentGenerator.js";
 
 dotenv.config();
 
@@ -124,12 +126,30 @@ app.post("/api/chat", async (req, res) => {
 
     console.log('[Chat API] Processing message:', message);
 
-    // Step 1: Use local RAG service for semantic search
+    // STEP 1: Check for casual conversation first
+    if (conversationHandler.isCasualConversation(message)) {
+      console.log('[Chat API] Detected casual conversation');
+      const casualResponse = conversationHandler.handleCasualConversation(message);
+      
+      // Track analytics
+      const responseTime = Date.now() - startTime;
+      analytics.trackQuery(message, responseTime, casualResponse.method, 0, true);
+      
+      return res.json({
+        reply: casualResponse.reply,
+        sources: casualResponse.sources,
+        method: casualResponse.method,
+        contextsUsed: 0,
+        category: casualResponse.category
+      });
+    }
+
+    // STEP 2: Use local RAG service for semantic search
     const ragResults = await ragService.query(message);
     let contexts = ragResults.contexts || [];
     console.log('[Chat API] Local RAG found', contexts.length, 'contexts');
 
-    // Step 2: Enhance with NASA API data
+    // STEP 3: Enhance with NASA API data
     try {
       const nasaCtx = await fetchNasaContext(message);
       if (nasaCtx && nasaCtx.length > 0) {
@@ -140,7 +160,7 @@ app.post("/api/chat", async (req, res) => {
       console.warn('[Chat API] NASA API error (continuing with RAG):', err.message);
     }
 
-    // Step 3: Try Solar System OpenData API
+    // STEP 4: Try Solar System OpenData API
     try {
       const solarData = await fetchSolarData(message);
       if (solarData) {
@@ -163,7 +183,7 @@ app.post("/api/chat", async (req, res) => {
       console.warn('[Chat API] Solar System API error (continuing with RAG):', err.message);
     }
 
-    // Step 4: Try Wikipedia for concept questions
+    // STEP 5: Try Wikipedia for concept questions
     const isConceptQuestion = message.length < 50 || 
                               message.toLowerCase().includes("là gì") || 
                               message.toLowerCase().includes("ai là");
@@ -187,39 +207,50 @@ app.post("/api/chat", async (req, res) => {
     console.log('[Chat API] Total contexts collected:', contexts.length);
     contextsUsed = contexts.length;
 
-    // Build prompt with all collected contexts
-    const prompt = buildPrompt(message, contexts);
-
-    // Step 5: Try to generate with Gemini API
+    // STEP 6: Generate response with multiple fallback strategies
     let reply = null;
     let generationMethod = 'unknown';
 
+    // Strategy 1: Try Gemini API first
     try {
       const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
       const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+      const prompt = buildPrompt(message, contexts);
 
       const result = await model.generateContent(prompt);
       reply = result.response.text();
       generationMethod = 'gemini_api';
       method = generationMethod;
       console.log('[Chat API] Response generated via Gemini API');
+      
     } catch (geminiErr) {
       console.error("[Chat API] Gemini API error:", geminiErr.message);
       
-      // Fallback: Use template-based generation from RAG
+      // Strategy 2: Use Intelligent Generator (NEW!)
       if (contexts.length > 0) {
-        const templateResponse = ragService.generateTemplateResponse(message, ragResults.retrievedDocs);
-        reply = templateResponse.reply;
-        generationMethod = templateResponse.method;
+        console.log('[Chat API] Using Intelligent Generator');
+        const intelligentResponse = intelligentGenerator.generateResponse(message, contexts);
+        reply = intelligentResponse.reply;
+        generationMethod = intelligentResponse.method;
         method = generationMethod;
-        console.log('[Chat API] Using template-based generation (RAG fallback)');
+        console.log('[Chat API] Generated intelligent response with intent:', intelligentResponse.intent);
+        
       } else {
-        // Last resort: simple error message
-        reply = "Xin lỗi, hiện tại mình đang gặp sự cố kết nối với API. Vui lòng thử lại sau hoặc hỏi một câu hỏi khác về hệ Mặt Trời.";
-        generationMethod = 'error_fallback';
+        // Strategy 3: Use Intelligent Generator for no-context scenarios
+        console.log('[Chat API] Using Intelligent Generator (no context)');
+        const noContextResponse = intelligentGenerator.generateNoContextResponse(message);
+        reply = noContextResponse.reply;
+        generationMethod = noContextResponse.method;
         method = generationMethod;
-        success = false;
       }
+    }
+
+    // Final fallback if everything fails
+    if (!reply) {
+      reply = "Xin lỗi, mình đang gặp sự cố kỹ thuật. Vui lòng thử lại sau hoặc hỏi một câu hỏi khác về hệ Mặt Trời! 🤖💫";
+      generationMethod = 'final_fallback';
+      method = generationMethod;
+      success = false;
     }
 
     // Track analytics
@@ -232,6 +263,7 @@ app.post("/api/chat", async (req, res) => {
       method: generationMethod,
       contextsUsed: contexts.length
     });
+    
   } catch (err) {
     console.error('[Chat API] Server error:', err);
     
