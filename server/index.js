@@ -13,12 +13,19 @@ import ragService from "./ragService.js";
 import { analytics } from "./analytics.js";
 import { conversationHandler } from "./conversationHandler.js";
 import { intelligentGenerator } from "./intelligentGenerator.js";
+import { conversationMemory } from "./conversationMemory.js";
+import { responseCache } from "./responseCache.js";
+import { rateLimiter } from "./rateLimiter.js";
+import { vietnameseNLP } from "./vietnameseNLP.js";
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Apply rate limiting middleware
+app.use(rateLimiter.middleware());
 
 // Initialize RAG service
 ragService.initialize().catch(err => {
@@ -121,15 +128,45 @@ app.post("/api/chat", async (req, res) => {
   let contextsUsed = 0;
   
   try {
-    const { message } = req.body;
+    const { message, sessionId: clientSessionId } = req.body;
     if (!message) return res.status(400).json({ error: "Missing message" });
 
     console.log('[Chat API] Processing message:', message);
 
-    // STEP 1: Check for casual conversation first
-    if (conversationHandler.isCasualConversation(message)) {
+    // Generate session ID
+    const sessionId = clientSessionId || conversationMemory.getSessionId(req);
+
+    // STEP 1: Check cache first
+    const cachedResponse = responseCache.get(message);
+    if (cachedResponse) {
+      console.log('[Chat API] Cache HIT - returning cached response');
+      
+      // Track analytics for cached response
+      const responseTime = Date.now() - startTime;
+      analytics.trackQuery(message, responseTime, cachedResponse.method, cachedResponse.contextsUsed, true);
+      
+      return res.json({
+        ...cachedResponse,
+        sessionId,
+        responseTime
+      });
+    }
+
+    // STEP 2: Resolve references using conversation memory
+    const { resolvedMessage, referencedEntity } = conversationMemory.resolveReferences(sessionId, message);
+    const queryToProcess = resolvedMessage;
+    
+    if (referencedEntity) {
+      console.log(`[Chat API] Resolved reference: "${message}" → "${resolvedMessage}" (entity: ${referencedEntity})`);
+    }
+
+    // STEP 3: Check for casual conversation first
+    if (conversationHandler.isCasualConversation(queryToProcess)) {
       console.log('[Chat API] Detected casual conversation');
-      const casualResponse = conversationHandler.handleCasualConversation(message);
+      const casualResponse = conversationHandler.handleCasualConversation(queryToProcess);
+      
+      // Add to conversation memory
+      conversationMemory.addToHistory(sessionId, message, casualResponse, []);
       
       // Track analytics
       const responseTime = Date.now() - startTime;
@@ -140,18 +177,28 @@ app.post("/api/chat", async (req, res) => {
         sources: casualResponse.sources,
         method: casualResponse.method,
         contextsUsed: 0,
-        category: casualResponse.category
+        category: casualResponse.category,
+        sessionId,
+        responseTime,
+        referencedEntity
       });
     }
 
-    // STEP 2: Use local RAG service for semantic search
-    const ragResults = await ragService.query(message);
+    // STEP 4: Enhanced query processing with Vietnamese NLP
+    const nlpStats = vietnameseNLP.getTokenizationStats(queryToProcess);
+    const entities = vietnameseNLP.extractEntities(queryToProcess);
+    const intentDetection = vietnameseNLP.detectIntent(queryToProcess);
+    
+    console.log(`[Chat API] NLP Analysis - Intent: ${intentDetection.intent}, Entities: ${Object.values(entities).flat().length}`);
+
+    // STEP 5: Use local RAG service for semantic search
+    const ragResults = await ragService.query(queryToProcess);
     let contexts = ragResults.contexts || [];
     console.log('[Chat API] Local RAG found', contexts.length, 'contexts');
 
-    // STEP 3: Enhance with NASA API data
+    // STEP 6: Enhance with NASA API data
     try {
-      const nasaCtx = await fetchNasaContext(message);
+      const nasaCtx = await fetchNasaContext(queryToProcess);
       if (nasaCtx && nasaCtx.length > 0) {
         console.log('[Chat API] NASA API found', nasaCtx.length, 'additional contexts');
         contexts.push(...nasaCtx);
@@ -160,9 +207,9 @@ app.post("/api/chat", async (req, res) => {
       console.warn('[Chat API] NASA API error (continuing with RAG):', err.message);
     }
 
-    // STEP 4: Try Solar System OpenData API
+    // STEP 7: Try Solar System OpenData API
     try {
-      const solarData = await fetchSolarData(message);
+      const solarData = await fetchSolarData(queryToProcess);
       if (solarData) {
         console.log('[Chat API] Solar System API found data for', solarData.name);
         contexts.unshift({
@@ -183,14 +230,15 @@ app.post("/api/chat", async (req, res) => {
       console.warn('[Chat API] Solar System API error (continuing with RAG):', err.message);
     }
 
-    // STEP 5: Try Wikipedia for concept questions
-    const isConceptQuestion = message.length < 50 || 
-                              message.toLowerCase().includes("là gì") || 
-                              message.toLowerCase().includes("ai là");
+    // STEP 8: Try Wikipedia for concept questions
+    const isConceptQuestion = intentDetection.intent === 'what' || 
+                              queryToProcess.length < 50 || 
+                              queryToProcess.toLowerCase().includes("là gì") || 
+                              queryToProcess.toLowerCase().includes("ai là");
 
     if (isConceptQuestion && contexts.length < 3) {
       try {
-        const wikiData = await fetchWikiSummary(message);
+        const wikiData = await fetchWikiSummary(queryToProcess);
         if (wikiData) {
           console.log('[Chat API] Wikipedia found:', wikiData.title);
           contexts.push({
@@ -207,41 +255,56 @@ app.post("/api/chat", async (req, res) => {
     console.log('[Chat API] Total contexts collected:', contexts.length);
     contextsUsed = contexts.length;
 
-    // STEP 6: Generate response with multiple fallback strategies
+    // STEP 9: Generate response with multiple fallback strategies
     let reply = null;
     let generationMethod = 'unknown';
+    let responseData = null;
 
     // Strategy 1: Try Gemini API first
     try {
       const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
       const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-      const prompt = buildPrompt(message, contexts);
+      
+      // Build context-aware prompt using conversation memory
+      const basePrompt = buildPrompt(queryToProcess, contexts);
+      const contextualPrompt = conversationMemory.buildContextualPrompt(basePrompt, sessionId, queryToProcess);
 
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent(contextualPrompt);
       reply = result.response.text();
-      generationMethod = 'gemini_api';
+      generationMethod = 'gemini_api_contextual';
       method = generationMethod;
-      console.log('[Chat API] Response generated via Gemini API');
+      console.log('[Chat API] Response generated via Gemini API with conversation context');
       
     } catch (geminiErr) {
       console.error("[Chat API] Gemini API error:", geminiErr.message);
       
-      // Strategy 2: Use Intelligent Generator (NEW!)
+      // Strategy 2: Use Intelligent Generator (Enhanced with NLP)
       if (contexts.length > 0) {
-        console.log('[Chat API] Using Intelligent Generator');
-        const intelligentResponse = intelligentGenerator.generateResponse(message, contexts);
+        console.log('[Chat API] Using Enhanced Intelligent Generator');
+        const intelligentResponse = intelligentGenerator.generateResponse(queryToProcess, contexts);
+        
+        // Enhance with NLP insights
+        intelligentResponse.nlpInsights = {
+          intent: intentDetection.intent,
+          confidence: intentDetection.confidence,
+          entities: entities,
+          tokenStats: nlpStats
+        };
+        
         reply = intelligentResponse.reply;
-        generationMethod = intelligentResponse.method;
+        generationMethod = intelligentResponse.method + '_enhanced';
         method = generationMethod;
-        console.log('[Chat API] Generated intelligent response with intent:', intelligentResponse.intent);
+        responseData = intelligentResponse;
+        console.log('[Chat API] Generated enhanced intelligent response with intent:', intentDetection.intent);
         
       } else {
         // Strategy 3: Use Intelligent Generator for no-context scenarios
         console.log('[Chat API] Using Intelligent Generator (no context)');
-        const noContextResponse = intelligentGenerator.generateNoContextResponse(message);
+        const noContextResponse = intelligentGenerator.generateNoContextResponse(queryToProcess);
         reply = noContextResponse.reply;
         generationMethod = noContextResponse.method;
         method = generationMethod;
+        responseData = noContextResponse;
       }
     }
 
@@ -253,16 +316,34 @@ app.post("/api/chat", async (req, res) => {
       success = false;
     }
 
-    // Track analytics
-    const responseTime = Date.now() - startTime;
-    analytics.trackQuery(message, responseTime, method, contextsUsed, success);
-
-    return res.json({
+    // STEP 10: Prepare final response
+    const finalResponse = {
       reply,
       sources: contexts.map((c) => ({ name: c.name, source: c.source })),
       method: generationMethod,
-      contextsUsed: contexts.length
-    });
+      contextsUsed: contexts.length,
+      sessionId,
+      responseTime: Date.now() - startTime,
+      referencedEntity,
+      nlpInsights: responseData?.nlpInsights || {
+        intent: intentDetection.intent,
+        confidence: intentDetection.confidence,
+        entities: entities
+      }
+    };
+
+    // STEP 11: Cache the response (if successful)
+    if (success && generationMethod !== 'casual_conversation') {
+      responseCache.set(message, contexts, finalResponse);
+    }
+
+    // STEP 12: Add to conversation memory
+    conversationMemory.addToHistory(sessionId, message, finalResponse, contexts);
+
+    // STEP 13: Track analytics
+    analytics.trackQuery(message, finalResponse.responseTime, method, contextsUsed, success);
+
+    return res.json(finalResponse);
     
   } catch (err) {
     console.error('[Chat API] Server error:', err);
@@ -271,7 +352,11 @@ app.post("/api/chat", async (req, res) => {
     const responseTime = Date.now() - startTime;
     analytics.trackQuery(message || 'unknown', responseTime, 'server_error', 0, false);
     
-    res.status(500).json({ error: "Server error", details: err.message });
+    res.status(500).json({ 
+      error: "Server error", 
+      details: err.message,
+      responseTime
+    });
   }
 });
 
@@ -295,6 +380,102 @@ app.get("/api/analytics/queries", (req, res) => {
   } catch (err) {
     console.error('[Analytics API] Error:', err);
     res.status(500).json({ error: "Analytics error" });
+  }
+});
+
+// Cache statistics endpoint
+app.get("/api/cache/stats", (req, res) => {
+  try {
+    const stats = responseCache.getStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('[Cache API] Error:', err);
+    res.status(500).json({ error: "Cache error" });
+  }
+});
+
+// Cache entries endpoint (for debugging)
+app.get("/api/cache/entries", (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const entries = responseCache.getEntries(limit);
+    res.json(entries);
+  } catch (err) {
+    console.error('[Cache API] Error:', err);
+    res.status(500).json({ error: "Cache error" });
+  }
+});
+
+// Clear cache endpoint (admin only)
+app.post("/api/cache/clear", (req, res) => {
+  try {
+    responseCache.clear();
+    res.json({ message: "Cache cleared successfully" });
+  } catch (err) {
+    console.error('[Cache API] Error:', err);
+    res.status(500).json({ error: "Cache error" });
+  }
+});
+
+// Rate limiter statistics endpoint
+app.get("/api/ratelimit/stats", (req, res) => {
+  try {
+    const stats = rateLimiter.getStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('[RateLimit API] Error:', err);
+    res.status(500).json({ error: "Rate limit error" });
+  }
+});
+
+// Conversation memory statistics endpoint
+app.get("/api/memory/stats", (req, res) => {
+  try {
+    const stats = conversationMemory.getAllSessionsStats();
+    res.json(stats);
+  } catch (err) {
+    console.error('[Memory API] Error:', err);
+    res.status(500).json({ error: "Memory error" });
+  }
+});
+
+// Session status endpoint
+app.get("/api/memory/session", (req, res) => {
+  try {
+    const sessionId = conversationMemory.getSessionId(req);
+    const stats = conversationMemory.getSessionStats(sessionId);
+    const context = conversationMemory.getConversationContext(sessionId);
+    
+    res.json({
+      sessionId,
+      stats,
+      context
+    });
+  } catch (err) {
+    console.error('[Memory API] Error:', err);
+    res.status(500).json({ error: "Memory error" });
+  }
+});
+
+// Vietnamese NLP test endpoint
+app.post("/api/nlp/analyze", (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ error: "Missing text" });
+    
+    const stats = vietnameseNLP.getTokenizationStats(text);
+    const entities = vietnameseNLP.extractEntities(text);
+    const intent = vietnameseNLP.detectIntent(text);
+    
+    res.json({
+      text,
+      tokenization: stats,
+      entities,
+      intent
+    });
+  } catch (err) {
+    console.error('[NLP API] Error:', err);
+    res.status(500).json({ error: "NLP error" });
   }
 });
 

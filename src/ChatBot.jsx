@@ -9,6 +9,7 @@ export default function ChatBot() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [sessionId, setSessionId] = useState(null);
   const listRef = useRef(null);
 
   // Suggested questions with Vietnam content
@@ -43,7 +44,10 @@ export default function ChatBot() {
       const resp = await fetch("http://localhost:3001/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: messageToSend }),
+        body: JSON.stringify({ 
+          message: messageToSend,
+          sessionId: sessionId 
+        }),
       });
 
       const data = await resp.json();
@@ -51,12 +55,26 @@ export default function ChatBot() {
       const sources = data?.sources || [];
       const method = data?.method || 'unknown';
       const contextsUsed = data?.contextsUsed || 0;
+      const responseTime = data?.responseTime || 0;
+      const referencedEntity = data?.referencedEntity;
+      const fromCache = data?.fromCache;
+      
+      // Set session ID from response
+      if (data?.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
+      }
       
       setMessages((m) => [...m, { 
         role: "bot", 
         text: botText, 
         sources,
-        metadata: { method, contextsUsed }
+        metadata: { 
+          method, 
+          contextsUsed, 
+          responseTime,
+          referencedEntity,
+          fromCache
+        }
       }]);
     } catch (e) {
       setMessages((m) => [...m, { role: "bot", text: "Lỗi server hoặc API. Đảm bảo backend đang chạy trên port 3001." }]);
@@ -205,7 +223,9 @@ export default function ChatBot() {
                       fontStyle: "italic",
                       maxWidth: "85%"
                     }}>
-                      🤖 Method: {m.metadata.method} | Contexts: {m.metadata.contextsUsed}
+                      🤖 {m.metadata.method} | {m.metadata.contextsUsed} contexts | {m.metadata.responseTime}ms
+                      {m.metadata.fromCache && " | 📦 cached"}
+                      {m.metadata.referencedEntity && ` | 🔗 ${m.metadata.referencedEntity}`}
                     </div>
                   )}
                   {m.sources && m.sources.length > 0 && (
