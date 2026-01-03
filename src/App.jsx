@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import LoadingScreen from "./components/LoadingScreen";
@@ -13,9 +13,8 @@ const Planets = lazy(() => import("./pages/Planets"));
 const PlanetDetail = lazy(() => import("./pages/PlanetDetails"));
 const Explore3D = lazy(() => import("./pages/Explore3D"));
 const Gallery = lazy(() => import("./pages/Gallery"));
-const Articles = lazy(() => import("./pages/Articles"));
 const About = lazy(() => import("./pages/About"));
-const Quiz = lazy(() => import("./pages/Quiz"));
+const Learn = lazy(() => import("./pages/Learn"));
 
 function App() {
   return (
@@ -32,9 +31,10 @@ function App() {
                   <Route path="/planets/:id" element={<PlanetDetail />} />
                   <Route path="/explore3d" element={<Explore3D />} />
                   <Route path="/gallery" element={<Gallery />} />
-                  <Route path="/articles" element={<Articles />} />
+                  <Route path="/learn" element={<Learn />} />
                   <Route path="/about" element={<About />} />
-                  <Route path="/quiz" element={<Quiz />} />
+                  {/* Redirect old routes to new unified Learn page */}
+                  <Route path="/articles" element={<Navigate to="/learn" replace />} />
                 </Routes>
               </Suspense>
             </main>

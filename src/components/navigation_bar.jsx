@@ -9,8 +9,7 @@ const NAV_LINKS = [
   { to: "/planets", label: "Planets" },
   { to: "/explore3d", label: "Explore 3D" },
   { to: "/gallery", label: "Gallery" },
-  { to: "/articles", label: "Learn" },
-  { to: "/quiz", label: "Quiz" },
+  { to: "/learn", label: "Learn" },
   { to: "/about", label: "About" }
 ];
 

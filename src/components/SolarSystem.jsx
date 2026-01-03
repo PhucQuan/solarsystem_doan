@@ -1,6 +1,7 @@
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Loader } from "@react-three/drei";
+import * as TWEEN from '@tweenjs/tween.js';
 import Planet from "./Planet";
 import CameraController from "./CameraController";
 import { PLANET_DATA } from "../data/solarSystemData";
@@ -11,6 +12,8 @@ import EnhancedPlanetPanel from "./EnhancedPlanetPanel";
 import PlanetSearch from "./PlanetSearch";
 import StarField from "./StarField";
 import EnhancedSun from "./EnhancedSun";
+import { TourManager } from "../features/tours";
+import cameraController from "../features/tours/utils/cameraController";
 
 function LoadingFallback() {
   return (
@@ -19,6 +22,37 @@ function LoadingFallback() {
       <meshBasicMaterial color="#444444" wireframe />
     </mesh>
   );
+}
+
+// Helper component to capture camera ref
+function CameraRefCapture({ cameraRef }) {
+  useFrame(({ camera }) => {
+    if (cameraRef && !cameraRef.current) {
+      cameraRef.current = camera;
+    }
+  });
+  return null;
+}
+
+// Helper component to update TWEEN animations
+function TweenUpdater() {
+  const frameCount = useRef(0);
+
+  useFrame((state, delta) => {
+    frameCount.current++;
+    const currentTime = state.clock.getElapsedTime() * 1000;
+
+    if (frameCount.current % 60 === 0) {
+      console.log('🕐 TweenUpdater running, global tweens:', TWEEN.getAll().length);
+    }
+
+    // Update global TWEEN (for other animations if any)
+    TWEEN.update(currentTime);
+
+    // Update camera controller's custom Group
+    cameraController.update(currentTime);
+  });
+  return null;
 }
 
 // Camera controller for view modes
@@ -62,6 +96,32 @@ export default function SolarSystem() {
   const [viewMode, setViewMode] = useState('free'); // 'heliocentric', 'geocentric', 'free'
   const [showOrbits, setShowOrbits] = useState(true);
 
+  // Tour state
+  const [tourState, setTourState] = useState({
+    isActive: false,
+    isPaused: false,
+    currentTour: null,
+    currentStop: null
+  });
+
+  // Refs for tour system
+  const cameraRef = useRef();
+  const planetRefs = useRef({});
+
+  // Handler for tour state changes (memoized to prevent infinite loops)
+  const handleTourStateChange = useCallback((newTourState) => {
+    console.log('🎯 Tour state changing:', newTourState);
+    setTourState(newTourState);
+  }, []);
+
+
+  // Debug: Log tourState changes
+  useEffect(() => {
+    console.log('📊 Tour state updated:', tourState);
+    console.log('🔒 OrbitControls should be enabled:', viewMode === 'free' && !tourState.isActive);
+  }, [tourState, viewMode]);
+
+
   // Update simulation time
   useEffect(() => {
     if (!isPlaying) return;
@@ -96,6 +156,35 @@ export default function SolarSystem() {
         });
     }
   };
+
+  // Handler for when tour focuses on a planet (MUST be after handlePlanetClick)
+  const handleTourPlanetFocus = useCallback((planetName) => {
+    console.log('🎯 Tour focusing on planet:', planetName);
+
+    // If planetName is null, close the panel
+    if (!planetName) {
+      setFocusedPlanet(null);
+      setPlanetData(null);
+      return;
+    }
+
+    // Find planet in PLANET_DATA
+    const planet = PLANET_DATA.find(p =>
+      p.name.toLowerCase() === planetName.toLowerCase()
+    );
+
+    if (planet && planetRefs.current[planetName]) {
+      const planetMesh = planetRefs.current[planetName];
+
+      // Simulate planet click to open info panel
+      handlePlanetClick({
+        name: planet.name,
+        data: planet,
+        position: planetMesh.position,
+        size: planet.size
+      });
+    }
+  }, [planetRefs, handlePlanetClick]);
 
   const handlePlanetSelect = (planet) => {
     // Tạo planetInfo giống format khi click
@@ -153,12 +242,17 @@ export default function SolarSystem() {
         <ambientLight intensity={0.6} />
         <hemisphereLight intensity={0.3} groundColor="#000000" />
 
+        {/* Capture camera ref for tour system */}
+        <CameraRefCapture cameraRef={cameraRef} />
 
         {/* Render tất cả hành tinh với Suspense */}
         <Suspense fallback={<LoadingFallback />}>
           {PLANET_DATA.map((planet) => (
             <group key={planet.name}>
               <Planet
+                ref={(el) => {
+                  if (el) planetRefs.current[planet.name] = el;
+                }}
                 data={planet}
                 onClick={handlePlanetClick}
                 isPaused={focusedPlanet !== null}
@@ -171,6 +265,8 @@ export default function SolarSystem() {
           ))}
         </Suspense>
 
+        {/* Update TWEEN animations for tour system */}
+        <TweenUpdater />
 
         {/* Điều khiển camera */}
         <OrbitControls
@@ -180,7 +276,7 @@ export default function SolarSystem() {
           enableRotate={true}
           minDistance={10}
           maxDistance={100}
-          enabled={viewMode === 'free'}
+          enabled={viewMode === 'free' && !tourState.isActive}
         />
 
         {/* Camera Controller for focused planet */}
@@ -336,6 +432,14 @@ export default function SolarSystem() {
           </div>
         ))}
       </div>
+
+      {/* Tour Manager - AI Guide Tour System */}
+      <TourManager
+        camera={cameraRef}
+        planetRefs={planetRefs}
+        onTourStateChange={handleTourStateChange}
+        onPlanetFocus={handleTourPlanetFocus}
+      />
     </div>
   );
 }

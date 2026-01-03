@@ -158,9 +158,9 @@ app.post("/api/chat", async (req, res) => {
     }
 
     // Step 4: Try Wikipedia for concept questions
-    const isConceptQuestion = message.length < 50 || 
-                              message.toLowerCase().includes("là gì") || 
-                              message.toLowerCase().includes("ai là");
+    const isConceptQuestion = message.length < 50 ||
+      message.toLowerCase().includes("là gì") ||
+      message.toLowerCase().includes("ai là");
 
     if (isConceptQuestion && contexts.length < 3) {
       try {
@@ -197,7 +197,7 @@ app.post("/api/chat", async (req, res) => {
       console.log('[Chat API] Response generated via Gemini API');
     } catch (geminiErr) {
       console.error("[Chat API] Gemini API error:", geminiErr.message);
-      
+
       // Fallback: Use template-based generation from RAG
       if (contexts.length > 0) {
         const templateResponse = ragService.generateTemplateResponse(message, ragResults.retrievedDocs);
@@ -303,6 +303,46 @@ app.get("/api/articles", async (req, res) => {
   }
 });
 
+// API endpoint for APOD Gallery - fetch last 12 days
+app.get("/api/apod/gallery", async (req, res) => {
+  try {
+    const images = [];
+    const today = new Date();
+
+    // Fetch APOD for last 12 days
+    for (let i = 0; i < 12; i++) {
+      try {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+
+        const apodData = await getApodData(dateStr);
+
+        if (apodData && apodData.length > 0) {
+          const apod = apodData[0];
+          images.push({
+            title: apod.name,
+            date: dateStr,
+            url: apod.imageUrl,
+            hdurl: apod.imageUrl,
+            explanation: apod.description,
+            media_type: "image" // APOD service chỉ return images
+          });
+        }
+      } catch (err) {
+        console.warn(`[APOD Gallery] Failed to fetch for day ${i}:`, err.message);
+        // Continue với ngày khác
+      }
+    }
+
+    console.log(`[APOD Gallery] Returning ${images.length} images`);
+    res.json(images);
+  } catch (err) {
+    console.error("[APOD Gallery] Error:", err);
+    res.status(500).json({ error: "Failed to fetch APOD gallery" });
+  }
+});
+
 // API endpoint for planet details (used by 3D Explorer)
 app.get("/api/planet/:name", async (req, res) => {
   try {
@@ -319,6 +359,25 @@ app.get("/api/planet/:name", async (req, res) => {
   } catch (err) {
     console.error("[API] Planet fetch error:", err);
     res.status(500).json({ error: "Failed to fetch planet data" });
+  }
+});
+
+// API endpoint for Wikipedia content (on-demand fetch for Learn page)
+app.get("/api/wiki/:topic", async (req, res) => {
+  try {
+    const topic = decodeURIComponent(req.params.topic);
+    console.log(`[Wiki API] Fetching content for: ${topic}`);
+
+    const wikiData = await fetchWikiSummary(topic);
+
+    if (!wikiData) {
+      return res.status(404).json({ error: "Topic not found on Wikipedia" });
+    }
+
+    res.json(wikiData);
+  } catch (err) {
+    console.error("[Wiki API] Error:", err);
+    res.status(500).json({ error: "Failed to fetch Wikipedia content" });
   }
 });
 

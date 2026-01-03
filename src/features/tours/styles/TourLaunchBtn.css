@@ -1,0 +1,122 @@
+/* Tour Launch Button - Floating button để mở tour selector */
+.tour-launch-btn {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 800;
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 50px;
+
+    box-shadow:
+        0 4px 20px rgba(102, 126, 234, 0.4),
+        0 0 0 0 rgba(102, 126, 234, 0.5);
+
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    animation: fadeInDown 0.6s ease-out, breathe 3s ease-in-out infinite;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes breathe {
+
+    0%,
+    100% {
+        box-shadow:
+            0 4px 20px rgba(102, 126, 234, 0.4),
+            0 0 0 0 rgba(102, 126, 234, 0.5);
+    }
+
+    50% {
+        box-shadow:
+            0 6px 30px rgba(102, 126, 234, 0.6),
+            0 0 0 10px rgba(102, 126, 234, 0);
+    }
+}
+
+.tour-launch-btn:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6);
+}
+
+.tour-launch-btn:active {
+    transform: translateY(-1px) scale(1.02);
+}
+
+.tour-launch-icon {
+    font-size: 24px;
+    animation: rocket 2s ease-in-out infinite;
+}
+
+@keyframes rocket {
+
+    0%,
+    100% {
+        transform: translateY(0) rotate(0deg);
+    }
+
+    25% {
+        transform: translateY(-4px) rotate(-5deg);
+    }
+
+    75% {
+        transform: translateY(-2px) rotate(5deg);
+    }
+}
+
+.tour-launch-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tour-launch-btn {
+        padding: 12px 20px;
+        bottom: 10px;
+        left: 10px;
+    }
+
+    .tour-launch-icon {
+        font-size: 20px;
+    }
+
+    .tour-launch-text {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .tour-launch-btn {
+        padding: 10px 16px;
+    }
+
+    .tour-launch-text {
+        display: none;
+    }
+
+    .tour-launch-icon {
+        font-size: 24px;
+    }
+}

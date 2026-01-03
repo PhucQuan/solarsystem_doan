@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { fetchApod } from "../services/nasa/apod";
+
+const API_BASE = "http://localhost:3001";
 
 export default function Gallery() {
   const [images, setImages] = useState([]);
@@ -8,41 +9,32 @@ export default function Gallery() {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     async function loadGallery() {
       try {
-        // Fetch APOD for the last 12 days
-        const promises = [];
-        const today = new Date();
-        
-        for (let i = 0; i < 12; i++) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          const dateStr = date.toISOString().split('T')[0];
-          promises.push(fetchApod({ date: dateStr, hd: false }));
-        }
-        
-        const results = await Promise.allSettled(promises);
-        const successfulImages = results
-          .filter(r => r.status === 'fulfilled' && r.value?.media_type === 'image')
-          .map(r => r.value);
-        
+        // Fetch APOD images từ dedicated endpoint
+        const response = await fetch(`${API_BASE}/api/apod/gallery`);
+        if (!response.ok) throw new Error("Failed to fetch APOD gallery");
+
+        const apodImages = await response.json();
+
+        // Filter chỉ lấy images (không phải videos)
+        const imageOnly = apodImages.filter(img => img.media_type === "image");
+
         if (isMounted) {
-          setImages(successfulImages);
-          // eslint-disable-next-line no-console
-          console.log(`[Gallery] Loaded ${successfulImages.length} images`);
+          setImages(imageOnly);
+          console.log(`[Gallery] Loaded ${imageOnly.length} NASA APOD images`);
         }
       } catch (err) {
         if (isMounted) {
           setError(err?.message || "Failed to load gallery");
-          // eslint-disable-next-line no-console
           console.error("[Gallery] error:", err);
         }
       } finally {
         if (isMounted) setLoading(false);
       }
     }
-    
+
     loadGallery();
     return () => { isMounted = false; };
   }, []);
@@ -50,15 +42,15 @@ export default function Gallery() {
   return (
     <section className="page">
       <div className="section__header">
-        <h1>Space Gallery</h1>
+        <h1>NASA APOD Gallery</h1>
         <p className="page__lead">
-          NASA Astronomy Pictures of the Day - A collection of stunning space imagery
+          Astronomy Picture of the Day - Recent stunning space imagery from NASA
         </p>
       </div>
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p>Loading gallery...</p>
+          <p>Loading NASA APOD images...</p>
         </div>
       )}
 
@@ -66,7 +58,7 @@ export default function Gallery() {
         <div style={{ textAlign: 'center', padding: '40px', color: '#ff6b6b' }}>
           <p>Error: {error}</p>
           <p style={{ fontSize: '14px', marginTop: '8px' }}>
-            Check console (F12) for details. Make sure your NASA API key is valid.
+            Make sure backend server is running (npm run server)
           </p>
         </div>
       )}
@@ -85,8 +77,8 @@ export default function Gallery() {
       }}>
         {images.map((img, idx) => (
           <article key={idx} className="card" style={{ overflow: 'hidden' }}>
-            <img 
-              src={img.url} 
+            <img
+              src={img.url}
               alt={img.title}
               style={{
                 width: '100%',
@@ -95,7 +87,6 @@ export default function Gallery() {
                 borderRadius: '8px 8px 0 0'
               }}
               onError={(e) => {
-                // eslint-disable-next-line no-console
                 console.error(`[Gallery] Failed to load image: ${img.title}`, img.url);
                 e.target.style.display = 'none';
               }}
@@ -105,8 +96,8 @@ export default function Gallery() {
               <p style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>
                 {img.date}
               </p>
-              <p style={{ 
-                fontSize: '14px', 
+              <p style={{
+                fontSize: '14px',
                 lineHeight: '1.5',
                 maxHeight: '4.5em',
                 overflow: 'hidden',
@@ -114,11 +105,11 @@ export default function Gallery() {
               }}>
                 {img.explanation}
               </p>
-              <a 
-                href={img.hdurl || img.url} 
-                target="_blank" 
+              <a
+                href={img.hdurl || img.url}
+                target="_blank"
                 rel="noreferrer"
-                style={{ 
+                style={{
                   display: 'inline-block',
                   marginTop: '12px',
                   color: '#4a9eff',
@@ -135,8 +126,3 @@ export default function Gallery() {
     </section>
   );
 }
-
-
-
-
-

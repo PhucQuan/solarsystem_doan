@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, forwardRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { TextureLoader } from "three";
 import * as THREE from "three";
@@ -6,10 +6,21 @@ import PlanetLabel from "./PlanetLabel";
 import Atmosphere from "./Atmosphere";
 import SaturnRings from "./SaturnRings";
 
-export default function Planet({ data, onClick, isPaused, simulationTime = 0 }) {
+const Planet = forwardRef(function Planet({ data, onClick, isPaused, simulationTime = 0 }, ref) {
   const meshRef = useRef();
   const cloudsRef = useRef();
   const groupRef = useRef();
+
+  // Merge external ref with internal groupRef
+  useEffect(() => {
+    if (ref) {
+      if (typeof ref === 'function') {
+        ref(groupRef.current);
+      } else {
+        ref.current = groupRef.current;
+      }
+    }
+  }, [ref]);
   const [hovered, setHovered] = useState(false);
   const [texture, setTexture] = useState(null);
   const [cloudsTexture, setCloudsTexture] = useState(null);
@@ -194,4 +205,6 @@ export default function Planet({ data, onClick, isPaused, simulationTime = 0 }) 
       </group>
     </>
   );
-}
+});
+
+export default Planet;
